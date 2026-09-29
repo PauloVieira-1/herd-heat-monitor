@@ -6,6 +6,8 @@ tags: [project]
 
 # Heat Stress Demo
 
+Live at **https://paulovieira-1.github.io/herd-heat-monitor/** (GitHub Pages, public repo `PauloVieira-1/herd-heat-monitor`). This folder is its own git repository: commit and push from here, and Pages redeploys within a minute. It is gitignored by the vault.
+
 A one-page client demo of a system that predicts heat stress in dairy cows. It shows a herd of five cows, flags the one showing heat stress (cow 001), and explains why: each measurement, the limit it is checked against, whether it counts as a warning sign, and what the farmer should do.
 
 ## What is real and what is made up
@@ -14,6 +16,10 @@ A one-page client demo of a system that predicts heat stress in dairy cows. It s
 - Cows 002–005, their names and the advice wording are invented for the demo. The spreadsheet only had placeholders such as "ADVICE for RESPIRATION RATE".
 - Confidence is a simple count: each warning sign adds 20%, as in the spreadsheet (4 signs → 80%). The real system will use a trained model.
 - Levels: under 50% normal, 50–69% watch, 70% and up heat stress.
+
+## Measurements are taken outdoors
+
+The cows are in the field, not a barn: the temperature is "Outdoor temperature" from a thermometer on location, and the advice talks about shade and water rather than fans.
 
 ## Editing
 
