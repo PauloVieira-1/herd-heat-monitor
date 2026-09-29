@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Demo of heat stress prediction for a herd of dairy cows.">
+<title>Herd Heat Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F3F5F1; --surface:#FFFFFF; --ink:#1B2420; --muted:#5B6A62; --line:#DCE2DC; --track:#E8ECE6;
+  --accent:#1F6B57; --accent-soft:#E1EFE9;
+  --ok:#3E8E5E; --ok-soft:#E3F1E7;
+  --warn:#B9770E; --warn-soft:#FBEFD8;
+  --alert:#C23B2E; --alert-soft:#FBE4E0;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#121815; --surface:#1A221E; --ink:#E6ECE8; --muted:#95A59C; --line:#2C3832; --track:#26302B;
+    --accent:#5CC0A0; --accent-soft:#1D3830;
+    --ok:#62B584; --ok-soft:#1C3326;
+    --warn:#E3A33E; --warn-soft:#3A2D14;
+    --alert:#F07565; --alert-soft:#42201B;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121815; --surface:#1A221E; --ink:#E6ECE8; --muted:#95A59C; --line:#2C3832; --track:#26302B;
+  --accent:#5CC0A0; --accent-soft:#1D3830;
+  --ok:#62B584; --ok-soft:#1C3326;
+  --warn:#E3A33E; --warn-soft:#3A2D14;
+  --alert:#F07565; --alert-soft:#42201B;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;margin:0;padding:0 16px}
+.wrap{max-width:1040px;margin:0 auto;padding-block:28px 48px;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{margin:0;text-wrap:balance;line-height:1.2}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* header */
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:40px;height:40px;border-radius:10px;background:var(--accent);display:grid;place-items:center;flex:none}
+.logo svg{width:24px;height:24px}
+.brand h1{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.demo{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);background:var(--warn-soft);padding:5px 10px;border-radius:999px;white-space:nowrap}
+
+/* alert banner */
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;background:var(--alert-soft);border:1px solid color-mix(in srgb,var(--alert) 35%,transparent);border-radius:12px;padding:16px 18px}
+.banner .dot{width:12px;height:12px;border-radius:50%;background:var(--alert);flex:none;box-shadow:0 0 0 0 var(--alert);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--alert) 55%,transparent)}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.banner .dot{animation:none}}
+.banner .msg{flex:1 1 280px;min-width:0}
+.banner strong{display:block;font-size:16px;color:var(--alert)}
+.banner span{color:var(--ink);font-size:14px}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--alert);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;font-size:14px}
+.btn:focus-visible,.row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* stat tiles */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .k{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-size:26px;font-weight:500}
+.stat .v small{font-size:14px;color:var(--muted);margin-left:2px}
+.stat.hot .v{color:var(--alert)}
+@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* panels */
+.grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px;align-items:start}
+@media (max-width:880px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel-head{display:flex;flex-direction:column;gap:2px}
+.panel-head h2{font-size:17px;font-weight:600}
+.panel-head p{margin:0;color:var(--muted);font-size:13px}
+
+/* herd chart */
+.chart{display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:72px minmax(0,1fr) 46px;align-items:center;gap:10px;background:none;border:1px solid transparent;border-radius:8px;padding:8px 6px;color:inherit;text-align:left;width:100%}
+.row:hover{background:var(--bg)}
+.row[aria-pressed="true"]{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.row .id{font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.row .id svg{width:18px;height:18px;flex:none;color:var(--muted)}
+.bar{position:relative;height:14px;background:var(--track);border-radius:4px}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:4px;transition:width .6s ease}
+.bar .th{position:absolute;top:-5px;bottom:-5px;width:0;border-left:2px dashed var(--alert);opacity:.7}
+.row .pct{font-size:14px;text-align:right}
+.axis{display:grid;grid-template-columns:72px minmax(0,1fr) 46px;gap:10px;padding:0 7px}
+.ticks{position:relative;height:16px;font-size:11px;color:var(--muted)}
+.ticks span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.ticks span:first-child{transform:none}
+.ticks span.last{transform:translateX(-100%)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+/* detail */
+.detail-top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px}
+.detail-top h2{font-size:20px;font-weight:700}
+.detail-top p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;white-space:nowrap}
+.pill.alert{color:var(--alert);background:var(--alert-soft)}
+.pill.warn{color:var(--warn);background:var(--warn-soft)}
+.pill.ok{color:var(--ok);background:var(--ok-soft)}
+.gauge{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.gauge svg{width:92px;height:92px;flex:none}
+.gauge .txt{flex:1 1 180px;min-width:0}
+.gauge .txt b{display:block;font-size:15px}
+.gauge .txt span{color:var(--muted);font-size:13px}
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:460px}
+th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 12px;background:var(--bg);border-bottom:1px solid var(--line)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td .src{display:block;font-size:12px;color:var(--muted)}
+tr.flag td{background:color-mix(in srgb,var(--alert-soft) 60%,transparent)}
+.sign{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;white-space:nowrap}
+.sign.yes{color:var(--alert)} .sign.no{color:var(--muted);font-weight:500}
+.advice{display:flex;flex-direction:column;gap:8px}
+.advice h3{font-size:14px;font-weight:600}
+.advice ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.advice li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;font-size:14px;background:var(--bg);border-radius:8px;padding:10px 12px}
+.advice li svg{width:18px;height:18px;margin-top:2px;color:var(--accent)}
+.advice li b{font-weight:600}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.about{background:transparent;border:1px dashed var(--line);border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+.about h3{font-size:14px;font-weight:600}
+.about p{margin:0;color:var(--muted);font-size:13px}
+.legend .dash{width:0;height:12px;border-radius:0;border-left:2px dashed var(--alert)}
+</style>
+
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/><path d="M11.5 17.5v-6"/></svg>
+      </div>
+      <div>
+        <h1>Herd Heat Monitor</h1>
+        <p>Early warning for heat stress in dairy cows</p>
+      </div>
+    </div>
+    <span class="demo">Demo · sample data</span>
+  </header>
+
+  <section class="banner" id="banner" aria-live="polite">
+    <span class="dot" aria-hidden="true"></span>
+    <div class="msg">
+      <strong>Heat stress detected in cow 001</strong>
+      <span>4 of 7 warning signs present · 80% confidence · 26 Sep 2026, 09:10</span>
+    </div>
+    <button class="btn" id="bannerBtn" type="button">View cow 001</button>
+  </section>
+
+  <section class="stats" aria-label="Herd summary">
+    <div class="stat"><span class="k">Cows monitored</span><span class="v num">5</span></div>
+    <div class="stat hot"><span class="k">Heat stress alerts</span><span class="v num">1</span></div>
+    <div class="stat"><span class="k">Outdoor temperature</span><span class="v num">26<small>°C</small></span></div>
+    <div class="stat"><span class="k">Last reading</span><span class="v num">09:10</span></div>
+  </section>
+
+  <div class="grid">
+    <div class="col">
+    <section class="panel" aria-labelledby="herdTitle">
+      <div class="panel-head">
+        <h2 id="herdTitle">Herd overview</h2>
+        <p>Likelihood of heat stress per cow. Select a cow to see why.</p>
+      </div>
+      <div class="chart" id="chart"></div>
+      <div class="axis" aria-hidden="true">
+        <span></span>
+        <div class="ticks" id="ticks"></div>
+        <span></span>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--ok)"></i>Normal (under 50%)</span>
+        <span><i style="background:var(--warn)"></i>Watch (50–69%)</span>
+        <span><i style="background:var(--alert)"></i>Heat stress (70% and up)</span>
+        <span><i class="dash"></i>Alert level</span>
+      </div>
+    </section>
+    <aside class="about">
+      <h3>How this demo works</h3>
+      <p>The readings for the five cows are sample data. For now, each warning sign adds 20% to the confidence. The finished system will estimate it with a trained model, and will weigh signs that are worse together more heavily, such as lying in the sun for a long time on a hot day.</p>
+    </aside>
+    </div>
+
+    <section class="panel" id="detail" aria-live="polite"></section>
+  </div>
+
+</div>
+
+<script>
+const COW_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6 3 4M19 6l2-2"/><path d="M6 7c0-1.7 2.7-3 6-3s6 1.3 6 3v6c0 3.9-2.7 7-6 7s-6-3.1-6-7z"/><circle cx="9.5" cy="10" r=".6" fill="currentColor"/><circle cx="14.5" cy="10" r=".6" fill="currentColor"/><path d="M10 15.5h4"/></svg>';
+const CHECK_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+
+// Measurements, where they come from, and when a reading counts as a warning sign.
+const INPUTS=[
+  {key:'skin',   label:'Skin temperature',   source:'Sensor (to be chosen)', unit:'°C',     limit:'above 39 °C',  sign:v=>v>39},
+  {key:'ambient',label:'Outdoor temperature',source:'Thermometer on location',   unit:'°C',     limit:'above 25 °C',  sign:v=>v>25},
+  {key:'resp',   label:'Breathing rate',     source:'Sensor (to be chosen)', unit:'/min',   limit:'above 40 /min',sign:v=>v>40},
+  {key:'activity',label:'Activity',          source:'Camera',                unit:'',       limit:'Low',          sign:v=>v==='Low'},
+  {key:'feeding',label:'Feeding',            source:'Camera',                unit:'',       limit:'Low',          sign:v=>v==='Low'},
+  {key:'lying',  label:'Lying time (last hour)', source:'Camera or ear tag', unit:'min',    limit:'above 20 min', sign:v=>v>20},
+  {key:'location',label:'Location',          source:'Camera or ear tag',     unit:'',       limit:'In the sun',   sign:v=>v==='Sun'},
+];
+
+const ADVICE={
+  skin:    ['Cool the cow directly','Hose her down or use sprinklers, and move her into shade to cool off.'],
+  ambient: ['Give shade and water','Make sure the field has shade and plenty of cool drinking water, and bring the herd in during the hottest hours if needed.'],
+  resp:    ['Check her within the hour','Fast breathing is one of the earliest signs of heat stress.'],
+  activity:['Let her rest in a cool spot','Avoid moving or handling her until she has cooled down.'],
+  feeding: ['Give fresh, cool water','Make sure water is close to the feed and feed in the cooler hours.'],
+  lying:   ['Check the lying area','Lying for long on hot ground adds heat; make sure there is shade where the herd lies down.'],
+  location:['Move her to shade','Direct sun is a big heat load; guide her to a shaded or covered area.'],
+};
+
+const COWS=[
+  {id:'001',name:'Bella', values:{skin:29.8,ambient:26,resp:50,activity:'Low',   feeding:'Low',   lying:2, location:'Shade'}},
+  {id:'002',name:'Daisy', values:{skin:30.1,ambient:26,resp:36,activity:'Normal',feeding:'Normal',lying:12,location:'Shade'}},
+  {id:'003',name:'Fenna', values:{skin:31.0,ambient:26,resp:43,activity:'Normal',feeding:'Normal',lying:8, location:'Shade'}},
+  {id:'004',name:'Klaar', values:{skin:29.5,ambient:26,resp:34,activity:'Normal',feeding:'Normal',lying:15,location:'Shade'}},
+  {id:'005',name:'Roosje',values:{skin:30.6,ambient:26,resp:38,activity:'Normal',feeding:'Normal',lying:10,location:'Shade'}},
+];
+const THRESHOLD=70, WATCH=50;
+
+COWS.forEach(c=>{
+  c.flags=INPUTS.filter(i=>i.sign(c.values[i.key])).map(i=>i.key);
+  c.score=Math.min(100,c.flags.length*20);
+  c.level=c.score>=THRESHOLD?'alert':c.score>=WATCH?'warn':'ok';
+});
+const LEVEL_TEXT={alert:'Heat stress',warn:'Watch',ok:'Normal'};
+const LEVEL_COLOR={alert:'var(--alert)',warn:'var(--warn)',ok:'var(--ok)'};
+
+const chart=document.getElementById('chart');
+chart.innerHTML=COWS.map(c=>`
+  <button class="row" type="button" data-id="${c.id}" aria-pressed="false" aria-label="Cow ${c.id}, ${c.score}% heat stress likelihood, ${LEVEL_TEXT[c.level]}">
+    <span class="id">${COW_ICON}${c.id}</span>
+    <span class="bar"><i style="width:${c.score}%;background:${LEVEL_COLOR[c.level]}"></i><span class="th" style="left:${THRESHOLD}%"></span></span>
+    <span class="pct num">${c.score}%</span>
+  </button>`).join('');
+
+document.getElementById('ticks').innerHTML=
+  [0,25,50,75,100].map((t,i,a)=>`<span class="${i===a.length-1?'last':''}" style="left:${t}%">${t}%</span>`).join('');
+
+function gauge(score,level){
+  const r=38,C=2*Math.PI*r,off=C*(1-score/100);
+  return `<svg viewBox="0 0 92 92" aria-hidden="true">
+    <circle cx="46" cy="46" r="${r}" fill="none" stroke="var(--track)" stroke-width="9"/>
+    <circle cx="46" cy="46" r="${r}" fill="none" stroke="${LEVEL_COLOR[level]}" stroke-width="9" stroke-linecap="round"
+      stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 46 46)"/>
+    <text x="46" y="51" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="17" font-weight="500" fill="var(--ink)">${score}%</text>
+  </svg>`;
+}
+
+function fmt(i,v){return typeof v==='number'?`<span class="num">${v}</span> ${i.unit}`:v}
+
+function show(id){
+  const c=COWS.find(x=>x.id===id);
+  chart.querySelectorAll('.row').forEach(r=>r.setAttribute('aria-pressed',r.dataset.id===id));
+  const n=c.flags.length;
+  const headline={alert:'Heat stress detected',warn:'Showing early signs, keep an eye on her',ok:'No sign of heat stress'}[c.level];
+  const advice=c.level==='ok'
+    ? `<li>${CHECK_ICON}<span><b>No action needed for this cow.</b> It is warm outside, so make sure the whole herd has shade and water.</span></li>`
+    : c.flags.map(k=>`<li>${CHECK_ICON}<span><b>${ADVICE[k][0]}.</b> ${ADVICE[k][1]}</span></li>`).join('');
+  document.getElementById('detail').innerHTML=`
+    <div class="detail-top">
+      <div><h2>Cow ${c.id} · ${c.name}</h2><p>Reading from 26 Sep 2026, 09:10</p></div>
+      <span class="pill ${c.level}">${LEVEL_TEXT[c.level]}</span>
+    </div>
+    <div class="gauge">${gauge(c.score,c.level)}
+      <div class="txt"><b>${headline}</b><span>${n} of ${INPUTS.length} warning signs present, giving ${c.score}% confidence.</span></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Measurement</th><th>Reading</th><th>Warning when</th><th>Sign</th></tr></thead>
+      <tbody>${INPUTS.map(i=>{const f=c.flags.includes(i.key);return `
+        <tr class="${f?'flag':''}"><td>${i.label}<span class="src">${i.source}</span></td>
+        <td>${fmt(i,c.values[i.key])}</td><td>${i.limit}</td>
+        <td><span class="sign ${f?'yes':'no'}">${f?'● Yes':'No'}</span></td></tr>`}).join('')}
+      </tbody></table></div>
+    <div class="advice"><h3>${c.level==='ok'?'Advice':'What to do'}</h3><ul>${advice}</ul></div>`;
+}
+
+chart.addEventListener('click',e=>{const r=e.target.closest('.row');if(r)show(r.dataset.id)});
+document.getElementById('bannerBtn').addEventListener('click',()=>{show('001');document.getElementById('detail').scrollIntoView({behavior:'smooth',block:'start'})});
+show('001');
+</script>
+</body>
+</html>
